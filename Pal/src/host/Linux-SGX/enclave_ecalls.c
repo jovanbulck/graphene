@@ -54,6 +54,17 @@ int enclave_ecall_pal_main (void * pms)
     return 0;
 }
 
+/*
+ * PoC: this function represents sensitive intra-enclave code that should not
+ * be called directly from the untrusted runtime..
+ */
+void enclave_private_func(void * arg)
+{
+    char *str = "[trts] enclave_private_func: should *not* see this; exiting..\n";
+    ocall_print_string(str, strlen(str));
+    ocall_exit_process(-1);
+}
+
 int enclave_ecall_thread_start (void * pms)
 {
     ms_ecall_thread_start_t * ms = SGX_CAST(ms_ecall_thread_start_t *, pms);
@@ -63,7 +74,10 @@ int enclave_ecall_thread_start (void * pms)
     if (ms->ms_child_tid)
         *ms->ms_child_tid = ms->ms_tid;
 
+    //XXX the ms->ms_func is provided by the untrusted runtime, but should
+    // be verified to be a valid entry point to prevent code abuse attacks..
     ms->ms_func(ms->ms_arg);
+    
     ocall_exit();
     return 0;
 }

