@@ -1,6 +1,13 @@
 /*
  * Elementary dummy application that features a struct with 2 function pointers,
  * and decides access by comparing a user-provided number with a secret PIN.
+ *
+ * Exploit passes out-of-bounds entry index to enclave_entry.S to underflow
+ * ecall_table, so as to redirect control via access_allowed function pointer.
+ *
+ * NOTE: exploit could even redirect control to arbitrary in-enclave addresses
+ * by underflowing the ecall_table to the memory location that contains the
+ * result of get_user_pin()..
  */
 #include <stdio.h>
 #include <fcntl.h>

@@ -47,6 +47,7 @@ enum {
     OCALL_DELETE,
     OCALL_SCHEDULE,
     OCALL_LOAD_DEBUG,
+    OCALL_DUMP,
     OCALL_NR,
 };
 
@@ -269,3 +270,7 @@ typedef struct {
 typedef struct {
     unsigned int ms_tid;
 } ms_ocall_schedule_t;
+
+typedef struct {
+    uint64_t arg;
+} ms_ocall_dump_t;

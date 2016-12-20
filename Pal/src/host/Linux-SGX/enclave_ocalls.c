@@ -814,3 +814,16 @@ int ocall_load_debug(const char * command)
     OCALL_EXIT();
     return retval;
 }
+
+int ocall_dump(uint64_t arg)
+{
+    int retval = 0;
+    ms_ocall_dump_t *ms;
+    OCALLOC(ms, ms_ocall_dump_t *, sizeof(*ms));
+    
+    ms->arg = arg;
+    
+    retval = SGX_OCALL(OCALL_DUMP, ms);
+    OCALL_EXIT();
+    return retval;
+}

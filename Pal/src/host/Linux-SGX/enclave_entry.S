@@ -3,6 +3,7 @@
 
 	.extern ecall_table
 	.extern enclave_ecall_pal_main
+	.extern enclave_handle_ecall
 
 	.global enclave_entry
 	.type enclave_entry, @function
@@ -35,7 +36,9 @@ enclave_entry:
 	jne .Lhandle_ecall
 
 	lea enclave_ecall_pal_main(%rip), %rbx
-	jmp .Lcall_ecall
+	#jmp .Lcall_ecall
+	mov %rsi, %rdi
+	call *%rbx
 
 .Lhandle_ecall:
 	lea ecall_table(%rip), %rbx
@@ -43,8 +46,11 @@ enclave_entry:
 
 .Lcall_ecall:
 	mov %rsi, %rdi
-	call *%rbx
-
+	#call *%rbx
+	
+	mov %rbx, %rsi
+	call enclave_handle_ecall
+	
 	# never return to this point (should die)
 	xor %rdi, %rdi
 	xor %rsi, %rsi

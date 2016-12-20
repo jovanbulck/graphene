@@ -14,6 +14,29 @@ extern void * enclave_base, * enclave_top;
 void pal_linux_main (const char ** arguments, const char ** environments,
                      struct pal_sec * sec_info);
 
+int enclave_ecall_thread_start (void * pms);
+
+/*
+ * PoC: asm stub redirects control to this function to allow debugging..
+ */
+int enclave_handle_ecall(void * pms, void (*fct)(void))
+{
+    if (fct == &enclave_ecall_thread_start)
+    {
+        char *str = "passing thread_start\n\n";
+        ocall_print_string(str, strlen(str));
+        
+        return enclave_ecall_thread_start(pms);
+    }
+
+    char *str = "enclave_handle_ecall: asm stub passed function pointer:\n";
+    ocall_print_string(str, strlen(str));
+    ocall_dump(fct);
+    fct();
+    
+    ocall_exit();
+}
+
 int enclave_ecall_pal_main (void * pms)
 {
     ms_ecall_pal_main_t * ms = SGX_CAST(ms_ecall_pal_main_t *, pms);

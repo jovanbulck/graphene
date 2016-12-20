@@ -229,6 +229,8 @@ int load_enclave_binary (sgx_arch_secs_t * secs, int fd,
     return 0;
 }
 
+struct pal_sec * pal_sec = NULL;
+
 int initialize_enclave (struct pal_enclave * enclave)
 {
     int ret = 0;
@@ -460,7 +462,7 @@ add_pages:
     create_tcs_mapper((void *) enclave_secs.baseaddr + tcs_area->addr,
                       enclave->thread_num);
 
-    struct pal_sec * pal_sec = &enclave->pal_sec;
+    pal_sec = &enclave->pal_sec;
 
     pal_sec->enclave_addr = (PAL_PTR) (enclave_secs.baseaddr + pal_area->addr);
 
